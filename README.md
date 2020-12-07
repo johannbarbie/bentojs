@@ -20,6 +20,7 @@ bento.getTotalShare('0x1234') // 123400000000
 
 ```
 default - Bento
+abi
 getBentoAddress
 ```
 
