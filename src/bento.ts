@@ -66,16 +66,26 @@ export default class Bento {
     if ((to - this.lastScanned) % stepSize > 0) {
       steps++;
     }
-    const filter = this.bentoBox.filters.LogDeploy(null, null);
+    const bentoface = new ethers.utils.Interface(abi.BentoBox);
+    const pairface = new ethers.utils.Interface(abi.LendingPair);
+    const initDataFrament = pairface.fragments.find(frag => frag.name == 'getInitData') ?? {inputs:[]};
     for (let i = this.lastScanned; i < this.lastScanned + (steps * stepSize); i += stepSize) {
-      const logs = await this.bentoBox.queryFilter(filter, i, (i+stepSize > to) ? to: i + stepSize);
+      // get all the events on the contract
+      const logs = await this.provider.getLogs({
+        fromBlock: i,
+        toBlock: (i+stepSize > to) ? to: i + stepSize,
+        address: this.bentoBox.address
+      });
       logs.forEach((log: any) => {
-        let cloneAddress = log.args['clone_address'];
-        this.masterContracts.set(cloneAddress.replace('0x', '').toLowerCase(), log.args['masterContract']);
-        // we don't know the ABI for sure, hence no fancy parsing
-        // need to find a way to get the token addresses independent of lending implementation
-        const collateralAddr = log.args.data.substring(26, 66);
-        const assetAddr = log.args.data.substring(90, 130);
+        // todo: have handlers for each event
+        const decodedEvent = bentoface.decodeEventLog('LogDeploy', log.data, log.topics);
+        let cloneAddress = decodedEvent['clone_address'];
+        this.masterContracts.set(cloneAddress.replace('0x', '').toLowerCase(), decodedEvent['masterContract']);
+
+        // TODO: better find a way to get the token addresses independent of lending implementation        
+        const decodeData = ethers.utils.defaultAbiCoder.decode(initDataFrament.inputs, decodedEvent.data);
+        const collateralAddr = decodeData['collateral_'].replace('0x', '').toLowerCase();
+        const assetAddr = decodeData['asset_'].replace('0x', '').toLowerCase();
         const key = collateralAddr < assetAddr ? collateralAddr + assetAddr: assetAddr + collateralAddr;
         this.lendingPairs.set(key, cloneAddress);
       });
