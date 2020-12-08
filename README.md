@@ -7,13 +7,13 @@ Helper library for bentobox.
 ### Setup
 
 ```
-import Bento, { getBentoAddress } from '@bentobox/bentojs'
+import Bento from '@bentobox/bentojs';
 
+const bento = new Bento(provider, 1);
 
+await bento.scanEvents();
 
-const bento = new Bento({ provider, bentoAddress: getBentoAddress('3') })
-
-bento.getTotalShare('0x1234') // 123400000000
+const lendingPair = bento.getPair(tokenA, tokenB); // '0x1234'
 ```
 
 ### exports
@@ -21,13 +21,26 @@ bento.getTotalShare('0x1234') // 123400000000
 ```
 default - Bento
 abi
-getBentoAddress
 ```
 
 ### Bento Interface
 
+
 ```
-getTotalShare(assetAddress: String) => BN
+scanEvents()
 ```
 
-Returns the total shares of the asset managed by Bentobox.
+Scans for all LendingPair deployment events since BentoBox creation.
+
+```
+getPair(address: string, address: string) => address
+```
+
+Returns the LendingPair for 2 assets.
+
+```
+getMaster(address: string) => address
+```
+
+Returns the master contract address for any deployed contract.
+
