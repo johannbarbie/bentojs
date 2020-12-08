@@ -25,9 +25,9 @@ function getBentoBoxContract(provider: any, address: string) {
 
 export default class Bento {
 
-	provider: ethers.providers.Provider;
-	//signer: ethers.providers.JsonRpcSigner;
-	bentoBox: any;
+  provider: ethers.providers.Provider;
+  //signer: ethers.providers.JsonRpcSigner;
+  bentoBox: any;
   lendingPairs: Map<string, string>;
   masterContracts: Map<string, string>;
   lastScanned = 0;
