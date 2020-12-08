@@ -1,6 +1,5 @@
 build/
-lib/
 out/
-node_modules/
 src/abi.ts
+node_modules/
 package-lock.json
