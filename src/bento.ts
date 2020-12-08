@@ -1,5 +1,6 @@
 import { ethers } from 'ethers';
-import {abi} from './abi';
+import { abi } from './abi';
+const prepLogHandler = require('./utils/prepLogHandler');
 const Provider = ethers.providers.Provider;
 
 const addressRegex = RegExp('^0x[a-fA-F0-9]{40}$');
@@ -23,6 +24,23 @@ function getBentoBoxContract(provider: any, address: string) {
   return bentoBox;
 }
 
+const handleLogs = prepLogHandler({
+  LogDeploy: (log: ethers.providers.Log, iface: ethers.utils.Interface, bento: Bento) => {
+    const decodedEvent = iface.decodeEventLog('LogDeploy', log.data, log.topics);
+    let cloneAddress = decodedEvent['clone_address'];
+    bento.masterContracts.set(cloneAddress.replace('0x', '').toLowerCase(), decodedEvent['masterContract']);
+
+    // TODO: better find a way to get the token addresses independent of lending implementation        
+    const pairface = new ethers.utils.Interface(abi.LendingPair);
+    const initDataFrament = pairface.fragments.find(frag => frag.name == 'getInitData') ?? {inputs:[]};
+    const decodeData = ethers.utils.defaultAbiCoder.decode(initDataFrament.inputs, decodedEvent.data);
+    const collateralAddr = decodeData['collateral_'].replace('0x', '').toLowerCase();
+    const assetAddr = decodeData['asset_'].replace('0x', '').toLowerCase();
+    const key = collateralAddr < assetAddr ? collateralAddr + assetAddr: assetAddr + collateralAddr;
+    bento.lendingPairs.set(key, cloneAddress);
+  }
+}, new ethers.utils.Interface(abi.BentoBox));
+
 export default class Bento {
 
   provider: ethers.providers.Provider;
@@ -30,7 +48,7 @@ export default class Bento {
   bentoBox: any;
   lendingPairs: Map<string, string>;
   masterContracts: Map<string, string>;
-  lastScanned = 0;
+  oldHeight = 0;
 
   constructor(provider: any, bentoBoxAddressOrNetworkId: string | number) {
     let ethersProvider: ethers.providers.Provider;
@@ -53,43 +71,30 @@ export default class Bento {
         ethersProvider,
         deployment.address
       );
-      this.lastScanned = deployment.height;
+      this.oldHeight = deployment.height;
     }
     this.lendingPairs = new Map<string, string>();
     this.masterContracts = new Map<string, string>();
   }
 
   async scanEvents() {
-    const to = (await this.provider.getBlockNumber());
+    const newHeight = (await this.provider.getBlockNumber());
     const stepSize = 2;
-    let steps = ((to - this.lastScanned) / stepSize) >> 0;
-    if ((to - this.lastScanned) % stepSize > 0) {
+    let steps = ((newHeight - this.oldHeight) / stepSize) >> 0;
+    if ((newHeight - this.oldHeight) % stepSize > 0) {
       steps++;
     }
-    const bentoface = new ethers.utils.Interface(abi.BentoBox);
-    const pairface = new ethers.utils.Interface(abi.LendingPair);
-    const initDataFrament = pairface.fragments.find(frag => frag.name == 'getInitData') ?? {inputs:[]};
-    for (let i = this.lastScanned; i < this.lastScanned + (steps * stepSize); i += stepSize) {
+    let logs: any = [];
+    for (let i = this.oldHeight; i < this.oldHeight + (steps * stepSize); i += stepSize) {
       // get all the events on the contract
-      const logs = await this.provider.getLogs({
+      logs = logs.concat((await this.provider.getLogs({
         fromBlock: i,
-        toBlock: (i+stepSize > to) ? to: i + stepSize,
+        toBlock: (i+stepSize > newHeight) ? newHeight: i + stepSize,
         address: this.bentoBox.address
-      });
-      logs.forEach((log: any) => {
-        // todo: have handlers for each event
-        const decodedEvent = bentoface.decodeEventLog('LogDeploy', log.data, log.topics);
-        let cloneAddress = decodedEvent['clone_address'];
-        this.masterContracts.set(cloneAddress.replace('0x', '').toLowerCase(), decodedEvent['masterContract']);
-
-        // TODO: better find a way to get the token addresses independent of lending implementation        
-        const decodeData = ethers.utils.defaultAbiCoder.decode(initDataFrament.inputs, decodedEvent.data);
-        const collateralAddr = decodeData['collateral_'].replace('0x', '').toLowerCase();
-        const assetAddr = decodeData['asset_'].replace('0x', '').toLowerCase();
-        const key = collateralAddr < assetAddr ? collateralAddr + assetAddr: assetAddr + collateralAddr;
-        this.lendingPairs.set(key, cloneAddress);
-      });
+      })));
     }
+    // apply the events to class state
+    await handleLogs(logs, this);
   }
 
   getPair(assetA: string, assetB: string) {

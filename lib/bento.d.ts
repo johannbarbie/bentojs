@@ -5,7 +5,7 @@ export default class Bento {
     bentoBox: any;
     lendingPairs: Map<string, string>;
     masterContracts: Map<string, string>;
-    lastScanned: number;
+    oldHeight: number;
     constructor(provider: any, bentoBoxAddressOrNetworkId: string | number);
     scanEvents(): Promise<void>;
     getPair(assetA: string, assetB: string): string | undefined;
