@@ -1,5 +1,6 @@
 import { ethers } from 'ethers';
 import { abi } from './abi';
+import LendingPair from './lendingPair';
 const prepLogHandler = require('./utils/prepLogHandler');
 const Provider = ethers.providers.Provider;
 
@@ -97,13 +98,14 @@ export default class Bento {
     await handleLogs(logs, this);
   }
 
-  getPair(assetA: string, assetB: string) {
+  getPair(assetA: string, assetB: string): LendingPair {
     // sort pairs
     assetA = assetA.replace('0x', '').toLowerCase();
     assetB = assetB.replace('0x', '').toLowerCase();
     const key = assetA < assetB ? assetA + assetB: assetB + assetA;
     // look into map
-    return this.lendingPairs.get(key);
+    const lendingPairAddr: string = this.lendingPairs.get(key)!;
+    return new LendingPair(this.provider, lendingPairAddr);
   }
 
   getMaster(lendingAddress: string) {

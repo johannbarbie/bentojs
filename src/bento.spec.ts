@@ -36,7 +36,7 @@ describe('bento.js tests', () => {
       const weth = bentoDeployment.weth._address;
       const erc20 = pairDeployment.assetTwo._address;
       const lendingPair = pairDeployment.lendingPair._address;
-      expect(bentoLib.getPair(weth, erc20)).toBe(lendingPair);
+      expect(bentoLib.getPair(weth, erc20).contract.address).toBe(lendingPair);
     });
 
     it('deploy one more, and check again', async () => {
@@ -49,7 +49,7 @@ describe('bento.js tests', () => {
       const weth = bentoDeployment.weth._address;
       const erc20 = deployment.assetTwo._address;
       const lendingPair = deployment.lendingPair._address;
-      expect(bentoLib.getPair(weth, erc20)).toBe(lendingPair);
+      expect(bentoLib.getPair(weth, erc20).contract.address).toBe(lendingPair);
     });
   });
 })
